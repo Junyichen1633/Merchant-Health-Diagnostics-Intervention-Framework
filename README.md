@@ -36,7 +36,12 @@ The project also includes:
 - Merchant segmentation with business labels such as `Champions`, `At-Risk`, and `Logistics Issue`.
 - Regression models for product hypotheses.
 - Random forest feature importance for driver ranking.
-- Tableau/Power BI-ready dashboard exports.
+- A local Plotly HTML dashboard as a Tableau/Power BI alternative.
+- Tableau/Power BI-ready dashboard exports for users who want to connect BI tools.
+
+## Dashboard Preview
+
+![Merchant Health Dashboard Preview](dashboard/dashboard_preview.png)
 
 ## Key Findings
 
@@ -79,6 +84,14 @@ pip install -r requirements.txt
 python3 src/run_pipeline.py
 ```
 
+Build the local interactive dashboard:
+
+```bash
+python3 scripts/build_dashboard_html.py
+```
+
+Open `dashboard/merchant_health_dashboard.html` in a browser. It is a self-contained Plotly dashboard and does not require Tableau, Power BI, Streamlit, or a local server.
+
 Main outputs:
 
 - `outputs/merchant_month_metrics.csv`
@@ -88,8 +101,9 @@ Main outputs:
 - `outputs/regression_summaries.csv`
 - `dashboard/merchant_health_dashboard.csv`
 - `dashboard/merchant_interventions.csv`
+- `dashboard/merchant_health_dashboard.html`
 
-Generated CSV outputs are intentionally excluded from GitHub. Run the pipeline locally to recreate them.
+Generated CSV outputs are intentionally excluded from GitHub. Run the pipeline locally to recreate them. The static HTML dashboard is included for portfolio review.
 
 ## Interview Story
 

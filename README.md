@@ -1,6 +1,6 @@
 # Merchant Health Diagnostics & Intervention Framework
 
-This project simulates a Shopify product data scientist workflow: define merchant health, identify at-risk merchants, diagnose the drivers of health changes, and recommend targeted product interventions.
+This project simulates a product data scientist workflow: define merchant health, identify at-risk merchants, diagnose the drivers of health changes, and recommend targeted product interventions.
 
 The goal is to improve merchant retention and GMV by identifying key drivers of merchant performance and enabling targeted interventions.
 

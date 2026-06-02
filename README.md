@@ -90,7 +90,3 @@ Main outputs:
 - `dashboard/merchant_interventions.csv`
 
 Generated CSV outputs are intentionally excluded from GitHub. Run the pipeline locally to recreate them.
-
-## Interview Story
-
-I built a merchant health diagnostics system using seller, order, delivery, review, and customer behavior data. I defined a merchant-month health score, decomposed health drops into fulfillment, satisfaction, retention, and growth drivers, segmented merchants into business-readable cohorts, and translated the outputs into targeted product interventions. The analysis found that delivery delays are strongly associated with lower customer reviews and lower overall merchant health, while repeat purchase is too sparse in Olist to be used alone. My recommendation is to prioritize shipping reliability and review-quality interventions for at-risk merchants, then measure downstream movement in repeat rate and GMV momentum.

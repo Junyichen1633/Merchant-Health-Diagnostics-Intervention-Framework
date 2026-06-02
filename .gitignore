@@ -1,0 +1,10 @@
+.DS_Store
+.Rhistory
+__pycache__/
+.ipynb_checkpoints/
+Dataset/*.csv
+outputs/*.csv
+dashboard/*.csv
+docs/*.pdf
+docs/pdf_preview/
+

@@ -2,6 +2,8 @@
 
 This project simulates a Shopify product data scientist workflow: define merchant health, identify at-risk merchants, diagnose the drivers of health changes, and recommend targeted product interventions.
 
+The goal is to improve merchant retention and GMV by identifying key drivers of merchant performance and enabling targeted interventions.
+
 The project uses the public Olist Brazilian E-commerce dataset. In this framing, Olist sellers are treated as Shopify merchants and Olist customers are treated as buyers. All core metrics are computed at the merchant-month grain.
 
 ## Problem

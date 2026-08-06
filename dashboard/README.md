@@ -8,7 +8,7 @@ This project includes a static interactive dashboard built with Plotly:
 python3 scripts/build_dashboard_html.py
 ```
 
-Open `dashboard/merchant_health_dashboard.html` in a browser(open the link below). It does not require Tableau, Power BI, Streamlit, or a local server.
+Open `dashboard/merchant_health_dashboard.html` in a browser(*open the link below*). It does not require Tableau, Power BI, Streamlit, or a local server.
 
 Live GitHub Pages dashboard:
 

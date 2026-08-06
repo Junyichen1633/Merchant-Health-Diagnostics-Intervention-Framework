@@ -4,6 +4,14 @@ This repository implements a merchant health decision system for a marketplace p
 
 Live dashboard: https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/docs/index.html
 
+## Project Snapshot
+
+- **Problem:** Identify which marketplace merchants need help, why they are at risk, and what intervention should happen next.
+- **Scale:** 100K+ orders, 3,095 merchants, merchant-month analytical grain.
+- **System:** Health scoring → risk diagnosis → segmentation → intervention recommendation → 30-day measurement plan.
+- **Key finding:** Fulfillment delays were associated with lower customer reviews and weaker merchant health.
+- **Tools:** Python, pandas, scikit-learn, statsmodels, Plotly.
+
 ![Merchant Health Dashboard Preview](dashboard/dashboard_preview.png)
 
 ## Business Problem

@@ -10,6 +10,12 @@ python3 scripts/build_dashboard_html.py
 
 Open `dashboard/merchant_health_dashboard.html` in a browser. It does not require Tableau, Power BI, Streamlit, or a local server.
 
+Live GitHub Pages dashboard:
+
+```text
+https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/
+```
+
 The HTML dashboard includes:
 
 - KPI cards for merchant count, median health, GMV at risk, and high-priority merchants.

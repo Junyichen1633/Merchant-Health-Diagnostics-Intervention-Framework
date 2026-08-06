@@ -11,6 +11,7 @@ from plotly.offline import get_plotlyjs
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD_DIR = ROOT / "dashboard"
 OUTPUT_HTML = DASHBOARD_DIR / "merchant_health_dashboard.html"
+PAGES_HTML = ROOT / "docs" / "index.html"
 
 
 def _latest_snapshot(df: pd.DataFrame) -> pd.DataFrame:
@@ -604,8 +605,11 @@ def build_html(data: dict) -> str:
 
 def main() -> None:
     data = _load_data()
-    OUTPUT_HTML.write_text(build_html(data), encoding="utf-8")
+    html = build_html(data)
+    OUTPUT_HTML.write_text(html, encoding="utf-8")
+    PAGES_HTML.write_text(html, encoding="utf-8")
     print(f"Dashboard written to: {OUTPUT_HTML}")
+    print(f"GitHub Pages entry written to: {PAGES_HTML}")
 
 
 if __name__ == "__main__":

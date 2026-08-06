@@ -41,6 +41,8 @@ The project also includes:
 
 ## Dashboard Preview
 
+Live dashboard: https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/
+
 ![Merchant Health Dashboard Preview](dashboard/dashboard_preview.png)
 
 ## Key Findings
@@ -92,6 +94,8 @@ python3 scripts/build_dashboard_html.py
 
 Open `dashboard/merchant_health_dashboard.html` in a browser. It is a self-contained Plotly dashboard and does not require Tableau, Power BI, Streamlit, or a local server.
 
+The same dashboard is also published through GitHub Pages from `docs/index.html`.
+
 Main outputs:
 
 - `outputs/merchant_month_metrics.csv`
@@ -102,6 +106,7 @@ Main outputs:
 - `dashboard/merchant_health_dashboard.csv`
 - `dashboard/merchant_interventions.csv`
 - `dashboard/merchant_health_dashboard.html`
+- `docs/index.html`
 
 Generated CSV outputs are intentionally excluded from GitHub. Run the pipeline locally to recreate them. The static HTML dashboard is included for portfolio review.
 

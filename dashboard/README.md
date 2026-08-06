@@ -13,10 +13,10 @@ Open `dashboard/merchant_health_dashboard.html` in a browser. It does not requir
 Live GitHub Pages dashboard:
 
 ```text
-https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/
+https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/docs/index.html
 ```
 
-The published site is served from the `gh-pages` branch.
+The repository includes a GitHub Pages-ready copy at `docs/index.html`.
 
 The HTML dashboard includes:
 

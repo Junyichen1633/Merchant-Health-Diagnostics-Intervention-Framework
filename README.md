@@ -2,7 +2,7 @@
 
 This repository implements a merchant health decision system for a marketplace product team. It uses public Olist marketplace data as a proxy environment to define merchant health, diagnose risk drivers, recommend interventions, and plan a 30-day measurement loop.
 
-Live dashboard: https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/
+Live dashboard: https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/docs/index.html
 
 ![Merchant Health Dashboard Preview](dashboard/dashboard_preview.png)
 
@@ -92,7 +92,7 @@ dashboard/merchant_health_dashboard.html
 Published dashboard:
 
 ```text
-https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/
+https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/docs/index.html
 ```
 
 Dashboard views:

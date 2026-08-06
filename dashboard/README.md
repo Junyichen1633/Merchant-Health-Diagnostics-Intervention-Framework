@@ -16,6 +16,8 @@ Live GitHub Pages dashboard:
 https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/
 ```
 
+The published site is served from the `gh-pages` branch.
+
 The HTML dashboard includes:
 
 - KPI cards for merchant count, median health, GMV at risk, and high-priority merchants.

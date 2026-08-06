@@ -94,7 +94,7 @@ python3 scripts/build_dashboard_html.py
 
 Open `dashboard/merchant_health_dashboard.html` in a browser. It is a self-contained Plotly dashboard and does not require Tableau, Power BI, Streamlit, or a local server.
 
-The same dashboard is also published through GitHub Pages from `docs/index.html`.
+The same dashboard is also published through GitHub Pages from the `gh-pages` branch generated from `docs/index.html`.
 
 Main outputs:
 

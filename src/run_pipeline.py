@@ -5,6 +5,7 @@ from pathlib import Path
 
 try:
     from .metrics import (
+        build_health_score_sensitivity,
         build_merchant_month_metrics,
         build_order_seller_frame,
         load_olist_data,
@@ -13,11 +14,13 @@ try:
     from .modeling import (
         build_dashboard_dataset,
         feature_importance,
+        intervention_evaluation,
         regression_summaries,
         segment_merchants,
     )
 except ImportError:  # Allows `python src/run_pipeline.py`.
     from metrics import (
+        build_health_score_sensitivity,
         build_merchant_month_metrics,
         build_order_seller_frame,
         load_olist_data,
@@ -26,6 +29,7 @@ except ImportError:  # Allows `python src/run_pipeline.py`.
     from modeling import (
         build_dashboard_dataset,
         feature_importance,
+        intervention_evaluation,
         regression_summaries,
         segment_merchants,
     )
@@ -49,14 +53,26 @@ def run_pipeline(
     dashboard_data = build_dashboard_dataset(scored, segments)
     importance = feature_importance(scored)
     regressions = regression_summaries(scored)
+    sensitivity = build_health_score_sensitivity(scored)
+    evaluation_plan, evaluation_summary = intervention_evaluation(
+        scored,
+        segments,
+        regressions,
+    )
 
     monthly.to_csv(output_path / "merchant_month_metrics.csv", index=False)
     scored.to_csv(output_path / "merchant_health_scores.csv", index=False)
     segments.to_csv(output_path / "merchant_segments.csv", index=False)
     importance.to_csv(output_path / "driver_feature_importance.csv", index=False)
     regressions.to_csv(output_path / "regression_summaries.csv", index=False)
+    sensitivity.to_csv(output_path / "health_score_sensitivity.csv", index=False)
+    evaluation_plan.to_csv(output_path / "intervention_evaluation_plan.csv", index=False)
+    evaluation_summary.to_csv(
+        output_path / "intervention_evaluation_summary.csv",
+        index=False,
+    )
     dashboard_data.to_csv(dashboard_path / "merchant_health_dashboard.csv", index=False)
-    segments[
+    intervention_export = segments[
         [
             "seller_id",
             "seller_state",
@@ -70,13 +86,29 @@ def run_pipeline(
             "lifetime_gmv",
             "lifetime_orders",
         ]
-    ].to_csv(dashboard_path / "merchant_interventions.csv", index=False)
+    ].merge(
+        evaluation_plan[
+            [
+                "seller_id",
+                "expected_30d_health_lift",
+                "expected_30d_health_score",
+                "target_metric",
+                "target_metric_delta_30d",
+                "success_metric",
+                "evaluation_method",
+            ]
+        ],
+        on="seller_id",
+        how="left",
+    )
+    intervention_export.to_csv(dashboard_path / "merchant_interventions.csv", index=False)
 
     print("Pipeline complete")
     print(f"Merchant-month rows: {len(scored):,}")
     print(f"Merchants segmented: {segments['seller_id'].nunique():,}")
     print(f"Dashboard file: {dashboard_path / 'merchant_health_dashboard.csv'}")
     print(f"Interventions file: {dashboard_path / 'merchant_interventions.csv'}")
+    print(f"Evaluation plan: {output_path / 'intervention_evaluation_plan.csv'}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -90,4 +122,3 @@ def parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = parse_args()
     run_pipeline(args.data_dir, args.output_dir, args.dashboard_dir)
-

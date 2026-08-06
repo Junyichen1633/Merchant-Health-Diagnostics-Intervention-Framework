@@ -22,6 +22,11 @@ ACTION_MAP: Dict[str, str] = {
     "growth": "Recommend merchandising and demand-generation support to rebuild GMV momentum.",
 }
 
+EVALUATION_METHOD = (
+    "30-day post-intervention readout with matched historical controls or a "
+    "staggered rollout holdout when product traffic allows."
+)
+
 
 def segment_merchants(scored: pd.DataFrame, n_clusters: int = 5) -> pd.DataFrame:
     """Cluster merchants and attach business-readable segment labels."""
@@ -173,7 +178,7 @@ def feature_importance(scored: pd.DataFrame) -> pd.DataFrame:
 
 def regression_summaries(scored: pd.DataFrame) -> pd.DataFrame:
     """
-    Run portfolio-friendly driver models.
+    Run driver models for product hypotheses.
 
     These are observational models, not causal proof. They are meant to quantify
     directional product hypotheses after controlling for merchant size, category,
@@ -244,6 +249,90 @@ def regression_summaries(scored: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def intervention_evaluation(
+    scored: pd.DataFrame,
+    segments: pd.DataFrame,
+    regressions: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Build a 30-day intervention evaluation plan.
+
+    Olist does not contain real intervention assignments, so this is a
+    counterfactual planning layer. The estimated lift uses the observational
+    health-driver model and bounded product assumptions; the recommended readout
+    is a matched-control or staggered-rollout measurement.
+    """
+    del scored  # The latest segment snapshot already carries the baseline metrics.
+
+    coeffs = (
+        regressions[regressions["model"] == "Health_driver_model"]
+        .set_index("term")["coefficient"]
+        .to_dict()
+    )
+
+    rows = []
+    for row in segments.itertuples(index=False):
+        deltas = _intervention_metric_deltas(row)
+        raw_lift = _expected_health_lift(deltas, coeffs)
+        expected_lift = float(np.clip(raw_lift, 0, _lift_cap(row.intervention_priority)))
+        expected_health = float(np.clip(row.health_score + expected_lift, 0, 100))
+
+        rows.append(
+            {
+                "seller_id": row.seller_id,
+                "segment": row.segment,
+                "intervention_priority": row.intervention_priority,
+                "dominant_issue": row.dominant_issue,
+                "recommended_action": row.recommended_action,
+                "baseline_health_score": row.health_score,
+                "expected_30d_health_lift": expected_lift,
+                "expected_30d_health_score": expected_health,
+                "target_metric": deltas["target_metric"],
+                "target_metric_delta_30d": deltas["target_metric_delta_30d"],
+                "avg_late_days_delta": deltas["avg_late_days"],
+                "avg_review_score_delta": deltas["avg_review_score"],
+                "repeat_order_rate_delta": deltas["repeat_order_rate"],
+                "gmv_momentum_delta": deltas["gmv_momentum"],
+                "measurement_window_days": 30,
+                "success_metric": "30-day health score lift versus matched controls",
+                "guardrail_metric": _guardrail_metric(row.dominant_issue),
+                "evaluation_method": EVALUATION_METHOD,
+                "lifetime_gmv": row.lifetime_gmv,
+                "lifetime_orders": row.lifetime_orders,
+            }
+        )
+
+    plan = pd.DataFrame(rows)
+    plan["_priority_rank"] = plan["intervention_priority"].map(
+        {"High": 0, "Medium": 1, "Low": 2}
+    ).fillna(3)
+    plan = plan.sort_values(
+        ["_priority_rank", "expected_30d_health_lift", "baseline_health_score"],
+        ascending=[True, False, True],
+    ).drop(columns="_priority_rank")
+
+    summary = (
+        plan.groupby(["dominant_issue", "intervention_priority"], as_index=False)
+        .agg(
+            merchants=("seller_id", "nunique"),
+            avg_baseline_health=("baseline_health_score", "mean"),
+            avg_expected_30d_lift=("expected_30d_health_lift", "mean"),
+            median_expected_30d_health=("expected_30d_health_score", "median"),
+            gmv_in_scope=("lifetime_gmv", "sum"),
+        )
+    )
+    summary["_priority_rank"] = summary["intervention_priority"].map(
+        {"High": 0, "Medium": 1, "Low": 2}
+    ).fillna(3)
+    summary = summary.sort_values(
+        ["_priority_rank", "avg_expected_30d_lift"],
+        ascending=[True, False],
+    ).drop(columns="_priority_rank")
+    summary["evaluation_method"] = EVALUATION_METHOD
+
+    return plan, summary
+
+
 def _top_category_bucket(df: pd.DataFrame, top_n: int = 10) -> pd.Series:
     top_categories = df["primary_category"].value_counts().head(top_n).index
     return df["primary_category"].where(df["primary_category"].isin(top_categories), "Other")
@@ -261,3 +350,98 @@ def _interpret_term(model_name: str, term: str, coefficient: float) -> str:
     if model_name == "Health_driver_model" and term == "avg_review_score":
         return f"One additional review-score point is associated with {coefficient:.2f} health-score points."
     return "Control or supporting driver estimate."
+
+
+def _intervention_metric_deltas(row: pd.Series) -> dict[str, float | str]:
+    intensity = _priority_multiplier(row.intervention_priority)
+    issue = row.dominant_issue
+
+    deltas: dict[str, float | str] = {
+        "target_metric": "health_score",
+        "target_metric_delta_30d": 0.0,
+        "avg_late_days": 0.0,
+        "avg_review_score": 0.0,
+        "repeat_order_rate": 0.0,
+        "gmv_momentum": 0.0,
+    }
+
+    if issue == "fulfillment":
+        current_late_days = _safe_value(row, "avg_late_days")
+        late_reduction = min(max(current_late_days * 0.30, 0.25), 2.0) * intensity
+        if current_late_days <= 0:
+            late_reduction = 0.0
+        review_lift = min(0.06 * intensity, max(0.0, 5 - _safe_value(row, "avg_review_score")))
+        deltas.update(
+            {
+                "target_metric": "avg_late_days",
+                "target_metric_delta_30d": -late_reduction,
+                "avg_late_days": -late_reduction,
+                "avg_review_score": review_lift,
+            }
+        )
+    elif issue == "satisfaction":
+        review_lift = min(0.25 * intensity, max(0.0, 5 - _safe_value(row, "avg_review_score")))
+        deltas.update(
+            {
+                "target_metric": "avg_review_score",
+                "target_metric_delta_30d": review_lift,
+                "avg_review_score": review_lift,
+            }
+        )
+    elif issue == "retention":
+        repeat_lift = min(0.015 * intensity, max(0.0, 1 - _safe_value(row, "repeat_order_rate")))
+        deltas.update(
+            {
+                "target_metric": "repeat_order_rate",
+                "target_metric_delta_30d": repeat_lift,
+                "repeat_order_rate": repeat_lift,
+            }
+        )
+    else:
+        momentum_lift = 0.12 * intensity
+        deltas.update(
+            {
+                "target_metric": "gmv_momentum",
+                "target_metric_delta_30d": momentum_lift,
+                "gmv_momentum": momentum_lift,
+            }
+        )
+
+    return deltas
+
+
+def _expected_health_lift(deltas: dict[str, float | str], coeffs: dict[str, float]) -> float:
+    term_map = {
+        "avg_late_days": "avg_late_days",
+        "avg_review_score": "avg_review_score",
+        "repeat_order_rate": "repeat_order_rate",
+        "gmv_momentum": "gmv_momentum",
+    }
+    lift = 0.0
+    for delta_key, term in term_map.items():
+        lift += float(deltas[delta_key]) * coeffs.get(term, 0.0)
+    return lift
+
+
+def _priority_multiplier(priority: str) -> float:
+    return {"High": 1.00, "Medium": 0.65, "Low": 0.35}.get(priority, 0.50)
+
+
+def _lift_cap(priority: str) -> float:
+    return {"High": 18.0, "Medium": 12.0, "Low": 7.0}.get(priority, 10.0)
+
+
+def _safe_value(row: pd.Series, field: str) -> float:
+    value = getattr(row, field, 0.0)
+    if pd.isna(value):
+        return 0.0
+    return float(value)
+
+
+def _guardrail_metric(issue: str) -> str:
+    return {
+        "fulfillment": "review score and cancellation/delivery failures",
+        "satisfaction": "return/refund pressure and review volume",
+        "retention": "discount cost and unsubscribed buyers",
+        "growth": "margin quality and support contact rate",
+    }.get(issue, "merchant support contact rate")

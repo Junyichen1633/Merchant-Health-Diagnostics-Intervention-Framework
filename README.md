@@ -1,78 +1,144 @@
 # Merchant Health Diagnostics & Intervention Framework
 
-This project simulates a product data scientist workflow: define merchant health, identify at-risk merchants, diagnose the drivers of health changes, and recommend targeted product interventions.
-
-The goal is to improve merchant retention and GMV by identifying key drivers of merchant performance and enabling targeted interventions.
-
-The project uses the public Olist Brazilian E-commerce dataset. In this framing, Olist sellers are treated as Shopify merchants and Olist customers are treated as buyers. All core metrics are computed at the merchant-month grain.
-
-## Problem
-
-Merchant performance varies widely across fulfillment reliability, customer satisfaction, repeat purchase behavior, and GMV momentum. A product team needs a repeatable way to answer three questions:
-
-1. Which merchants are healthy or at risk?
-2. Why did merchant health change?
-3. What intervention should Shopify prioritize?
-
-## Approach
-
-The pipeline builds a merchant-month health score from four components:
-
-- Fulfillment: delivered rate, on-time rate, and average late days.
-- Satisfaction: average review score and good-review rate.
-- Retention: repeat order rate for customers buying again from the same merchant.
-- Growth: GMV momentum and order-count momentum.
-
-The components are standardized with z-scores, combined with explicit product weights, and converted to a 0-100 percentile health score:
-
-- Fulfillment: 30%
-- Satisfaction: 30%
-- Retention: 20%
-- Growth: 20%
-
-The project also includes:
-
-- Driver decomposition for month-over-month health drops.
-- Merchant segmentation with business labels such as `Champions`, `At-Risk`, and `Logistics Issue`.
-- Regression models for product hypotheses.
-- Random forest feature importance for driver ranking.
-- A local Plotly HTML dashboard as a Tableau/Power BI alternative.
-- Tableau/Power BI-ready dashboard exports for users who want to connect BI tools.
-
-## Dashboard Preview
+This repository implements a merchant health decision system for a marketplace product team. It uses public Olist marketplace data as a proxy environment to define merchant health, diagnose risk drivers, recommend interventions, and plan a 30-day measurement loop.
 
 Live dashboard: https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/
 
 ![Merchant Health Dashboard Preview](dashboard/dashboard_preview.png)
 
-## Key Findings
+## Business Problem
 
-The generated pipeline covers 16,441 merchant-month rows, 3,095 merchants, and about $13.6M in GMV.
+Marketplace teams need to know which merchants are likely to create poor buyer experiences, lose momentum, or require product support. A static merchant ranking is not enough: PMs and operators need to understand why a merchant is unhealthy and what action should happen next.
 
-Latest merchant segmentation:
+This project answers five product questions:
 
-- Stable Core: 1,113 merchants
-- Logistics Issue: 758 merchants
-- Champions: 705 merchants
-- At-Risk: 519 merchants
+1. Which merchants are currently healthy, watch-listed, or at risk?
+2. Which driver explains the risk: fulfillment, satisfaction, retention, or growth?
+3. Which merchants should be prioritized first based on health, trend, and GMV exposure?
+4. What product intervention should be recommended for each merchant?
+5. How should the team evaluate whether the intervention improved health after 30 days?
 
-Driver analysis:
+## Metric Design
 
-- One additional late day is associated with a 0.091-point lower review score, controlling for merchant size, category, and month.
-- One additional late day is associated with a 1.71-point lower health score.
-- The strongest model drivers of health are average review score, GMV momentum, good-review rate, and on-time rate.
-- Repeat purchase is very sparse in Olist: average repeat order rate is 0.69%, and only 4.31% of merchant-months have any repeat orders. I keep repeat purchase as the north-star retention signal, but treat review and fulfillment metrics as stronger observable leading indicators.
+The core analytical grain is merchant-month:
 
-## Product Recommendation
+```text
+seller_id + order_month
+```
 
-Shopify should prioritize a merchant intervention system that first flags low-health merchants, then routes each merchant to a driver-specific playbook:
+The pipeline first collapses order-item data to the order-seller grain so review and customer signals are not duplicated when an order contains multiple items.
+
+Merchant health is measured through four interpretable components:
+
+- Fulfillment: delivered rate, on-time rate, average late days.
+- Satisfaction: average review score, good-review rate.
+- Retention: repeat order rate from buyers returning to the same merchant.
+- Growth: GMV momentum and order-count momentum.
+
+The primary score design is `business_calibrated_v1`:
+
+- Fulfillment: 30%
+- Satisfaction: 35%
+- Retention: 15%
+- Growth: 20%
+
+This design gives the most weight to buyer experience signals because they are actionable product levers and leading indicators of marketplace quality. Retention remains an outcome metric, but its weight is lower because repeat purchase is sparse in Olist and should not dominate the score without stronger merchant lifecycle data.
+
+The pipeline also runs sensitivity checks across alternative designs:
+
+- `balanced`
+- `experience_led`
+- `retention_led`
+- `growth_led`
+
+The sensitivity output reports rank correlation, at-risk overlap, median score movement, and p90 score movement. This makes the metric governable: a PM can see whether merchant prioritization is stable when reasonable business assumptions change.
+
+## Decision Framework
+
+The framework turns metrics into product decisions:
+
+1. Score each merchant-month on the four health components.
+2. Convert the primary health signal into a 0-100 percentile score and health band.
+3. Compute month-over-month component deltas to explain health drops.
+4. Assign the current weakest component as the dominant issue.
+5. Segment the latest merchant snapshot into business-readable groups.
+6. Recommend an intervention playbook based on the dominant issue.
+7. Estimate expected 30-day health lift and define the measurement plan.
+
+Intervention priority is based on current health and recent deterioration:
+
+- High: severe current risk or sharp recent health decline.
+- Medium: watch-list risk or moderate decline.
+- Low: stable merchants that should be monitored or used as benchmarks.
+
+The 30-day evaluation layer is a planning estimate, not a claimed experiment result. It uses the observational health-driver model plus bounded product assumptions to estimate expected lift, then recommends a matched-control or staggered-rollout readout.
+
+## Dashboard
+
+The interactive dashboard is built as a static Plotly HTML file, so it works as a Tableau or Power BI alternative without requiring local BI software.
+
+Local dashboard:
+
+```bash
+python3 scripts/build_dashboard_html.py
+```
+
+Open:
+
+```text
+dashboard/merchant_health_dashboard.html
+```
+
+Published dashboard:
+
+```text
+https://junyichen1633.github.io/Merchant-Health-Diagnostics-Intervention-Framework/
+```
+
+Dashboard views:
+
+- Merchant risk KPIs and GMV at risk.
+- Health score trend over time.
+- Latest segment mix.
+- Weakest driver distribution.
+- Component score comparison.
+- Model driver importance.
+- 30-day intervention evaluation.
+- Health score sensitivity.
+- Recommended intervention queue.
+
+## Product Recommendations
+
+The strongest product signal is that delivery delays are associated with lower review scores and lower merchant health. The recommended product direction is a merchant intervention system that routes merchants to driver-specific actions:
 
 - Fulfillment issue: shipping diagnostics, carrier SLA monitoring, and fulfillment workflow guidance.
-- Satisfaction issue: product quality, listing accuracy, and support workflow audits.
-- Retention issue: win-back offers, email campaigns, and loyalty incentives.
-- Growth issue: merchandising and demand-generation support.
+- Satisfaction issue: product quality, listing accuracy, and post-purchase support review.
+- Retention issue: lifecycle campaigns, win-back offers, and loyalty tooling.
+- Growth issue: merchandising support, demand-generation prompts, and assortment guidance.
 
-The strongest evidence from this dataset is that fulfillment delays damage customer satisfaction, which then weakens merchant health. For a Shopify PM, the product bet would be: improve shipping reliability tooling for merchants with low fulfillment scores and monitor whether review score, repeat rate, and GMV momentum recover over subsequent months.
+The dashboard should be used as an operating loop:
+
+1. Detect merchant risk.
+2. Diagnose the dominant issue.
+3. Trigger the recommended playbook.
+4. Re-measure health after 30 days against a matched control or rollout holdout.
+5. Promote interventions that lift health without hurting guardrail metrics.
+
+## Limitations
+
+- Olist is public marketplace data, not internal Shopify data.
+- Subscription churn, merchant support tickets, app adoption, and actual intervention assignments are not observed.
+- Repeat purchase is very sparse, so retention should be interpreted carefully.
+- Regression outputs are observational and should be described as associations, not causal proof.
+- The 30-day intervention lift is a decision-planning estimate until validated with an experiment or quasi-experiment.
+
+## Future Work
+
+- Replace proxy features with Shopify merchant lifecycle data.
+- Add merchant subscription status, app adoption, support tickets, and fulfillment-provider data.
+- Validate intervention impact with a randomized rollout, geo/category holdout, or matched historical cohort.
+- Add confidence intervals for expected 30-day lift.
+- Build a monitoring job that refreshes merchant health monthly and flags metric drift.
 
 ## How To Run
 
@@ -86,30 +152,23 @@ pip install -r requirements.txt
 python3 src/run_pipeline.py
 ```
 
-Build the local interactive dashboard:
-
 ```bash
 python3 scripts/build_dashboard_html.py
 ```
 
-Open `dashboard/merchant_health_dashboard.html` in a browser. It is a self-contained Plotly dashboard and does not require Tableau, Power BI, Streamlit, or a local server.
-
-The same dashboard is also published through GitHub Pages from the `gh-pages` branch generated from `docs/index.html`.
-
-Main outputs:
+Main generated outputs:
 
 - `outputs/merchant_month_metrics.csv`
 - `outputs/merchant_health_scores.csv`
 - `outputs/merchant_segments.csv`
 - `outputs/driver_feature_importance.csv`
 - `outputs/regression_summaries.csv`
+- `outputs/health_score_sensitivity.csv`
+- `outputs/intervention_evaluation_plan.csv`
+- `outputs/intervention_evaluation_summary.csv`
 - `dashboard/merchant_health_dashboard.csv`
 - `dashboard/merchant_interventions.csv`
 - `dashboard/merchant_health_dashboard.html`
 - `docs/index.html`
 
-Generated CSV outputs are intentionally excluded from GitHub. Run the pipeline locally to recreate them. The static HTML dashboard is included for portfolio review.
-
-## Interview Story
-
-I built a merchant health diagnostics system using seller, order, delivery, review, and customer behavior data. I defined a merchant-month health score, decomposed health drops into fulfillment, satisfaction, retention, and growth drivers, segmented merchants into business-readable cohorts, and translated the outputs into targeted product interventions. The analysis found that delivery delays are strongly associated with lower customer reviews and lower overall merchant health, while repeat purchase is too sparse in Olist to be used alone. My recommendation is to prioritize shipping reliability and review-quality interventions for at-risk merchants, then measure downstream movement in repeat rate and GMV momentum.
+Generated CSV outputs are excluded from GitHub so the repository stays lightweight and reproducible. The static dashboard HTML is included for review.

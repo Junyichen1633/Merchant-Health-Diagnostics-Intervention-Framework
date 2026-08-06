@@ -97,20 +97,20 @@ def add_cover(total: int) -> Image.Image:
     y = 220
     draw.text((MARGIN_X, y), "Merchant Health Diagnostics", font=TITLE, fill=(18, 32, 64))
     y += 74
-    draw.text((MARGIN_X, y), "Shopify Product Data Scientist Portfolio Project", font=SUBTITLE, fill=(38, 101, 190))
+    draw.text((MARGIN_X, y), "Merchant Health Decision System", font=SUBTITLE, fill=(38, 101, 190))
     y += 110
     draw.rounded_rectangle((MARGIN_X, y, PAGE_W - MARGIN_X, y + 420), radius=22, fill=(246, 248, 252), outline=(210, 220, 235), width=2)
     y += 42
     y = draw_wrapped(draw, "EN: I built a merchant health system that identifies at-risk sellers, decomposes health drops into product-relevant drivers, and maps each merchant to a targeted intervention.", (MARGIN_X + 42, y), BODY, (31, 41, 55), 72)
     y += 24
-    y = draw_wrapped(draw, "中文：这个项目模拟 Shopify Product Data Scientist 的真实工作：定义商家健康度，识别高风险商家，解释健康度下降的原因，并给出可落地的产品干预方案。", (MARGIN_X + 42, y), BODY, (31, 41, 55), 50)
+    y = draw_wrapped(draw, "中文：这个项目围绕 marketplace product team 的核心问题展开：定义商家健康度，识别高风险商家，解释健康度下降的原因，并给出可落地的产品干预方案。", (MARGIN_X + 42, y), BODY, (31, 41, 55), 50)
     y += 90
     draw.text((MARGIN_X, y), "Core numbers / 核心结果", font=H1, fill=(18, 32, 64))
     y += 72
     for item in [
         "16,441 merchant-month rows; 3,095 merchants; about $13.6M GMV.",
-        "Latest segments: 705 Champions, 519 At-Risk, 758 Logistics Issue, 1,113 Stable Core.",
-        "One additional late delivery day is associated with -0.091 review-score points and -1.71 health-score points.",
+        "Latest segments: 698 Champions, 488 At-Risk, 768 Logistics Issue, 1,141 Stable Core.",
+        "One additional late delivery day is associated with -0.091 review-score points and -1.53 health-score points.",
         "Repeat purchase is sparse in Olist, so reviews and fulfillment are treated as leading indicators.",
     ]:
         y = bullet(draw, item, y)
@@ -123,8 +123,8 @@ def add_metric_page(page_no: int, total: int) -> Image.Image:
     for item in [
         "Grain: seller_id + order_month. The order-item table is first collapsed to order-seller grain to avoid duplicating review and customer signals.",
         "North star: repeat purchase / retention. In Olist this signal is sparse, so it remains the strategic metric while reviews and delivery are leading indicators.",
-        "Health score = 30% fulfillment + 30% satisfaction + 20% retention + 20% growth.",
-        "Scores are standardized with z-scores, direction-aligned, then converted to 0-100 percentile ranks for dashboard readability.",
+        "Primary score design = 30% fulfillment + 35% satisfaction + 15% retention + 20% growth.",
+        "Weights are anchored in buyer experience, outcome checks, and sensitivity analysis rather than a single fixed assumption.",
     ]:
         y = bullet(draw, item, y)
     y += 44
@@ -132,7 +132,7 @@ def add_metric_page(page_no: int, total: int) -> Image.Image:
     for item in [
         "粒度是 merchant-month，也就是每个商家每个月一行；这样可以观察健康度随时间变化，而不是只做静态排名。",
         "Repeat purchase 是北极星指标，但 Olist 数据里复购非常稀疏，所以我没有硬凹结论，而是把 review 和 fulfillment 当作更可观察的先导指标。",
-        "健康度不是黑箱模型，而是一个可解释的产品指标体系，方便 PM 判断问题来自物流、满意度、留存还是增长。",
+        "健康度不是黑箱模型，而是一个可解释、可治理的产品指标体系，方便 PM 判断问题来自物流、满意度、留存还是增长。",
     ]:
         y = bullet(draw, item, y, max_chars=45)
     return img
@@ -184,10 +184,10 @@ def add_segments_page(page_no: int, total: int) -> Image.Image:
     img, draw = page_canvas(page_no, total)
     y = section_title(draw, "4. Segmentation + Intervention / 分群与干预", MARGIN_TOP)
     rows = [
-        ("Champions", "705", "Nurture with growth experiments; use as benchmark cohort."),
-        ("At-Risk", "519", "Prioritize diagnosis and intervention based on weakest component."),
-        ("Logistics Issue", "758", "Shipping diagnostics, carrier SLA monitoring, fulfillment guidance."),
-        ("Stable Core", "1,113", "Monitor and offer targeted growth support when momentum weakens."),
+        ("Champions", "698", "Nurture with growth experiments; use as benchmark cohort."),
+        ("At-Risk", "488", "Prioritize diagnosis and intervention based on weakest component."),
+        ("Logistics Issue", "768", "Shipping diagnostics, carrier SLA monitoring, fulfillment guidance."),
+        ("Stable Core", "1,141", "Monitor and offer targeted growth support when momentum weakens."),
     ]
     col_x = [MARGIN_X, MARGIN_X + 330, MARGIN_X + 500]
     draw.rounded_rectangle((MARGIN_X, y, PAGE_W - MARGIN_X, y + 64), radius=10, fill=(25, 73, 145))
@@ -202,7 +202,7 @@ def add_segments_page(page_no: int, total: int) -> Image.Image:
         draw_wrapped(draw, action, (col_x[2], y + 22), SMALL, (31, 41, 55), 56)
         y += 126
     y += 36
-    y = draw_wrapped(draw, "Decision framework: flag low-health merchants, identify the dominant issue, estimate likely impact, recommend the product playbook, then track future movement in review score, repeat rate, and GMV momentum.", (MARGIN_X, y), BODY, (31, 41, 55), 72)
+    y = draw_wrapped(draw, "Decision framework: flag low-health merchants, identify the dominant issue, estimate 30-day lift, recommend the product playbook, then track future movement in review score, repeat rate, and GMV momentum.", (MARGIN_X, y), BODY, (31, 41, 55), 72)
     return img
 
 
@@ -211,11 +211,11 @@ def add_interview_page(page_no: int, total: int) -> Image.Image:
     y = section_title(draw, "5. Interview Talk Track / 面试表达", MARGIN_TOP)
     english = (
         "I built a merchant health diagnostics system for marketplace sellers. "
-        "The key product decision was defining health at a merchant-month level, "
+        "The key product decision was defining health at the merchant-month grain, "
         "then decomposing changes into fulfillment, satisfaction, retention, and growth. "
         "The analysis showed that delivery delays are strongly associated with lower reviews and lower health scores. "
         "Because repeat purchase is sparse in Olist, I treated retention as the north star but used review and fulfillment as leading indicators. "
-        "The output is a dashboard-ready intervention framework that helps a PM decide which merchants need shipping, quality, retention, or growth tooling."
+        "The output is a dashboard-ready intervention framework that helps a PM decide which merchants need shipping, quality, retention, or growth tooling, then measure whether health improves after 30 days."
     )
     y = draw_wrapped(draw, "EN: " + english, (MARGIN_X, y), BODY, (31, 41, 55), 76)
     y += 42
@@ -224,16 +224,16 @@ def add_interview_page(page_no: int, total: int) -> Image.Image:
         "我先定义商家健康度，再把健康度下降拆成物流、满意度、留存和增长四个 driver。"
         "结果显示配送延迟和评论下降、健康度下降有明显关联。"
         "同时我也发现 Olist 的复购信号很稀疏，所以没有过度声称能预测 churn，而是把复购作为北极星，把 review 和 fulfillment 作为先导指标。"
-        "最后我把分析落到 dashboard 和 intervention framework，让 PM 能知道哪些商家有风险、为什么有风险、应该推荐什么产品工具。"
+        "最后我把分析落到 dashboard 和 intervention framework，让 PM 能知道哪些商家有风险、为什么有风险、应该推荐什么产品工具，以及 30 天后如何复盘。"
     )
     y = draw_wrapped(draw, chinese, (MARGIN_X, y), BODY, (31, 41, 55), 47)
     y += 46
     y = section_title(draw, "Details to Know / 必须记住的细节", y)
     for item in [
         "Merchant-month grain; Olist sellers are treated as Shopify merchants.",
-        "Health score weights: 30% fulfillment, 30% satisfaction, 20% retention, 20% growth.",
+        "Primary score design: 30% fulfillment, 35% satisfaction, 15% retention, 20% growth.",
         "Regression is observational, not causal proof; phrase results as 'associated with'.",
-        "Dashboard answers: who is at risk, why, and what action to take.",
+        "Dashboard answers: who is at risk, why, what action to take, and how to evaluate lift.",
     ]:
         y = bullet(draw, item, y)
     return img
@@ -245,15 +245,15 @@ def add_limitations_page(page_no: int, total: int) -> Image.Image:
     for item in [
         "Olist is not Shopify data. Seller behavior is a useful proxy, but merchant lifecycle and subscription churn are not directly observed.",
         "Repeat purchase is sparse, so retention analysis is directionally useful but should not be overclaimed.",
-        "Regression controls reduce confounding but do not prove causality. A stronger next step is a pseudo-experiment or merchant-level A/B test.",
-        "Dashboard next step: build Tableau/Power BI views for health trend, metric decomposition, segment mix, and recommended action queue.",
+        "Regression controls reduce confounding but do not prove causality. A stronger next step is a matched-control readout or merchant A/B test.",
+        "Dashboard next step: add automated monitoring for score drift, intervention lift, and guardrail metrics.",
     ]:
         y = bullet(draw, item, y)
     y += 42
     y = section_title(draw, "What to Say If Challenged / 被追问时怎么说", y)
     for item in [
         "Why percentile score? It is easier for PMs to rank and monitor merchants than raw z-scores.",
-        "Why these weights? They reflect product judgment: fulfillment and satisfaction are direct customer-experience levers; retention and growth represent outcome signals.",
+        "Why these weights? They reflect buyer-experience priority, retention sparsity in Olist, growth outcomes, and sensitivity checks across alternate designs.",
         "How would this work at Shopify? Replace Olist proxies with Shopify merchant data: GMV, buyer repeat behavior, support tickets, fulfillment data, app adoption, and merchant subscription status.",
     ]:
         y = bullet(draw, item, y)
@@ -296,4 +296,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

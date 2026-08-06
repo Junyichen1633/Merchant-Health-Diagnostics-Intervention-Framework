@@ -23,6 +23,7 @@ The HTML dashboard includes:
 - KPI cards for merchant count, median health, GMV at risk, and high-priority merchants.
 - Segment and intervention-priority filters.
 - Health trend, segment mix, driver mix, component scores, and feature-importance views.
+- Health score sensitivity and 30-day intervention evaluation views.
 - A recommended intervention queue for product action planning.
 
 ## Tableau Or Power BI Option
@@ -50,3 +51,5 @@ Recommended dashboard layout:
 5. Product recommendation view
    - Bar chart: feature importance from `outputs/driver_feature_importance.csv`.
    - Regression summary table from `outputs/regression_summaries.csv`.
+   - Sensitivity table from `outputs/health_score_sensitivity.csv`.
+   - Intervention readout from `outputs/intervention_evaluation_plan.csv`.

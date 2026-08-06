@@ -25,12 +25,60 @@ COMPONENT_COLUMNS = [
     "growth_score",
 ]
 
-HEALTH_WEIGHTS = {
-    "fulfillment_z": 0.30,
-    "satisfaction_z": 0.30,
-    "retention_z": 0.20,
-    "growth_z": 0.20,
+PRIMARY_HEALTH_SCENARIO = "business_calibrated_v1"
+
+HEALTH_WEIGHT_SCENARIOS = {
+    "business_calibrated_v1": {
+        "weights": {
+            "fulfillment_z": 0.30,
+            "satisfaction_z": 0.35,
+            "retention_z": 0.15,
+            "growth_z": 0.20,
+        },
+        "rationale": (
+            "Prioritizes buyer experience signals that product teams can act on "
+            "quickly, while keeping retention and growth as outcome checks."
+        ),
+    },
+    "balanced": {
+        "weights": {
+            "fulfillment_z": 0.25,
+            "satisfaction_z": 0.25,
+            "retention_z": 0.25,
+            "growth_z": 0.25,
+        },
+        "rationale": "Equal weighting benchmark for governance and sensitivity checks.",
+    },
+    "experience_led": {
+        "weights": {
+            "fulfillment_z": 0.40,
+            "satisfaction_z": 0.40,
+            "retention_z": 0.10,
+            "growth_z": 0.10,
+        },
+        "rationale": "Stress test where merchant risk is dominated by buyer experience.",
+    },
+    "retention_led": {
+        "weights": {
+            "fulfillment_z": 0.25,
+            "satisfaction_z": 0.25,
+            "retention_z": 0.30,
+            "growth_z": 0.20,
+        },
+        "rationale": "Stress test where repeat purchase carries more decision weight.",
+    },
+    "growth_led": {
+        "weights": {
+            "fulfillment_z": 0.20,
+            "satisfaction_z": 0.25,
+            "retention_z": 0.15,
+            "growth_z": 0.40,
+        },
+        "rationale": "Stress test where near-term marketplace momentum is prioritized.",
+    },
 }
+
+HEALTH_WEIGHTS = HEALTH_WEIGHT_SCENARIOS[PRIMARY_HEALTH_SCENARIO]["weights"]
 
 
 def load_olist_data(data_dir: str | Path = "Dataset") -> Dict[str, pd.DataFrame]:
@@ -277,15 +325,29 @@ def score_merchant_months(monthly: pd.DataFrame) -> pd.DataFrame:
         0.70 * scored["gmv_momentum_z"] + 0.30 * scored["order_momentum_z"]
     )
 
-    scored["health_z"] = sum(
-        weight * scored[column] for column, weight in HEALTH_WEIGHTS.items()
-    )
+    for scenario_name, config in HEALTH_WEIGHT_SCENARIOS.items():
+        weights = config["weights"]
+        z_col = f"health_z_{scenario_name}"
+        score_col = f"health_score_{scenario_name}"
+        scored[z_col] = sum(weight * scored[column] for column, weight in weights.items())
+        scored[score_col] = _safe_percentile(scored[z_col])
+
+    scored["health_z"] = scored[f"health_z_{PRIMARY_HEALTH_SCENARIO}"]
 
     scored["fulfillment_score"] = _safe_percentile(scored["fulfillment_z"])
     scored["satisfaction_score"] = _safe_percentile(scored["satisfaction_z"])
     scored["retention_score"] = _safe_percentile(scored["retention_z"])
     scored["growth_score"] = _safe_percentile(scored["growth_z"])
-    scored["health_score"] = _safe_percentile(scored["health_z"])
+    scored["health_score"] = scored[f"health_score_{PRIMARY_HEALTH_SCENARIO}"]
+
+    scenario_score_cols = [
+        f"health_score_{scenario}" for scenario in HEALTH_WEIGHT_SCENARIOS
+    ]
+    scored["health_score_sensitivity_min"] = scored[scenario_score_cols].min(axis=1)
+    scored["health_score_sensitivity_max"] = scored[scenario_score_cols].max(axis=1)
+    scored["health_score_sensitivity_range"] = (
+        scored["health_score_sensitivity_max"] - scored["health_score_sensitivity_min"]
+    )
 
     scored["health_band"] = pd.cut(
         scored["health_score"],
@@ -296,6 +358,45 @@ def score_merchant_months(monthly: pd.DataFrame) -> pd.DataFrame:
 
     scored = _add_driver_decomposition(scored)
     return scored
+
+
+def build_health_score_sensitivity(scored: pd.DataFrame) -> pd.DataFrame:
+    """Summarize whether score-based decisions are stable under alternate weights."""
+    primary_score = scored["health_score"]
+    primary_at_risk = primary_score <= 25
+    primary_count = int(primary_at_risk.sum())
+    rows = []
+
+    for scenario_name, config in HEALTH_WEIGHT_SCENARIOS.items():
+        score_col = f"health_score_{scenario_name}"
+        scenario_score = scored[score_col]
+        scenario_at_risk = scenario_score <= 25
+        abs_change = (scenario_score - primary_score).abs()
+        weights = config["weights"]
+
+        rows.append(
+            {
+                "scenario": scenario_name,
+                "rationale": config["rationale"],
+                "fulfillment_weight": weights["fulfillment_z"],
+                "satisfaction_weight": weights["satisfaction_z"],
+                "retention_weight": weights["retention_z"],
+                "growth_weight": weights["growth_z"],
+                "spearman_rank_corr": primary_score.corr(
+                    scenario_score, method="spearman"
+                ),
+                "at_risk_count": int(scenario_at_risk.sum()),
+                "primary_at_risk_overlap_rate": (
+                    float((primary_at_risk & scenario_at_risk).sum() / primary_count)
+                    if primary_count
+                    else 0.0
+                ),
+                "median_abs_score_change": float(abs_change.median()),
+                "p90_abs_score_change": float(abs_change.quantile(0.90)),
+            }
+        )
+
+    return pd.DataFrame(rows)
 
 
 def _add_driver_decomposition(scored: pd.DataFrame) -> pd.DataFrame:

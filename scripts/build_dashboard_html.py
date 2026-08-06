@@ -28,6 +28,11 @@ def _load_data() -> dict:
     interventions = pd.read_csv(DASHBOARD_DIR / "merchant_interventions.csv")
     importance = pd.read_csv(ROOT / "outputs" / "driver_feature_importance.csv")
     regressions = pd.read_csv(ROOT / "outputs" / "regression_summaries.csv")
+    sensitivity = pd.read_csv(ROOT / "outputs" / "health_score_sensitivity.csv")
+    evaluation = pd.read_csv(ROOT / "outputs" / "intervention_evaluation_plan.csv")
+    evaluation_summary = pd.read_csv(
+        ROOT / "outputs" / "intervention_evaluation_summary.csv"
+    )
 
     latest = _latest_snapshot(dashboard)
     month_order = sorted(dashboard["order_month_str"].dropna().unique())
@@ -74,6 +79,21 @@ def _load_data() -> dict:
             "lifetime_orders",
         ]
     ].copy()
+    latest_small = latest_small.merge(
+        evaluation[
+            [
+                "seller_id",
+                "expected_30d_health_lift",
+                "expected_30d_health_score",
+                "target_metric",
+                "target_metric_delta_30d",
+                "success_metric",
+                "evaluation_method",
+            ]
+        ],
+        on="seller_id",
+        how="left",
+    )
 
     importance_small = importance.head(8).copy()
     regressions_small = regressions[
@@ -88,6 +108,9 @@ def _load_data() -> dict:
         "monthly_segment": _records(monthly_segment),
         "latest": _records(latest_small),
         "interventions": _records(interventions),
+        "evaluation": _records(evaluation),
+        "evaluation_summary": _records(evaluation_summary),
+        "sensitivity": _records(sensitivity),
         "importance": _records(importance_small),
         "regressions": _records(regressions_small),
     }
@@ -182,7 +205,7 @@ def build_html(data: dict) -> str:
     }}
     .kpis {{
       display: grid;
-      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      grid-template-columns: repeat(5, minmax(160px, 1fr));
       gap: 14px;
       margin-bottom: 18px;
     }}
@@ -301,7 +324,7 @@ def build_html(data: dict) -> str:
   <header>
     <h1>Merchant Health Diagnostics Dashboard</h1>
     <div class="subtitle">
-      Tableau/Power BI alternative built with Plotly. The dashboard flags merchant risk, decomposes health drivers, and turns findings into intervention actions. Generated {data["generated_at"]}.
+      Tableau/Power BI alternative built with Plotly. The dashboard flags merchant risk, decomposes health drivers, stress-tests score design, and estimates a 30-day intervention readout. Generated {data["generated_at"]}.
     </div>
   </header>
   <main>
@@ -322,6 +345,7 @@ def build_html(data: dict) -> str:
       <div class="kpi"><div class="label">Median Health</div><div id="kpiHealth" class="value"></div><div class="hint">0-100 percentile score</div></div>
       <div class="kpi"><div class="label">GMV At Risk</div><div id="kpiGmv" class="value"></div><div class="hint">High/Medium priority merchants</div></div>
       <div class="kpi"><div class="label">High Priority</div><div id="kpiPriority" class="value"></div><div class="hint">needs immediate diagnosis</div></div>
+      <div class="kpi"><div class="label">Expected 30D Lift</div><div id="kpiLift" class="value"></div><div class="hint">median intervention estimate</div></div>
     </section>
 
     <section class="grid">
@@ -350,6 +374,17 @@ def build_html(data: dict) -> str:
       </div>
     </section>
 
+    <section class="grid">
+      <div class="panel">
+        <h2>30-Day Intervention Evaluation</h2>
+        <div id="evaluationLift" class="chart"></div>
+      </div>
+      <div class="panel">
+        <h2>Health Score Sensitivity</h2>
+        <div id="scoreSensitivity" class="chart"></div>
+      </div>
+    </section>
+
     <section class="table-panel">
       <div class="table-head">
         <h2>Recommended Intervention Queue</h2>
@@ -364,6 +399,7 @@ def build_html(data: dict) -> str:
             <th>Health</th>
             <th>Dominant Issue</th>
             <th>GMV</th>
+            <th>Expected 30D</th>
             <th>Recommended Action</th>
           </tr>
         </thead>
@@ -372,7 +408,7 @@ def build_html(data: dict) -> str:
     </section>
 
     <div class="note">
-      Method note: regression findings are observational and should be described as associations, not causal proof. Repeat purchase is sparse in Olist, so review and fulfillment metrics are used as leading indicators.
+      Method note: regression findings and 30-day intervention lifts are planning estimates, not causal proof. The recommended readout is a matched-control or staggered-rollout measurement.
     </div>
   </main>
 
@@ -425,6 +461,14 @@ def build_html(data: dict) -> str:
         (priority === "All" || row.intervention_priority === priority)
       );
     }}
+    function filteredEvaluation() {{
+      const segment = document.getElementById("segmentFilter").value;
+      const priority = document.getElementById("priorityFilter").value;
+      return DATA.evaluation.filter(row =>
+        (segment === "All" || row.segment === segment) &&
+        (priority === "All" || row.intervention_priority === priority)
+      );
+    }}
     function groupCount(rows, field) {{
       const out = {{}};
       rows.forEach(row => {{ out[row[field]] = (out[row[field]] || 0) + 1; }});
@@ -445,12 +489,15 @@ def build_html(data: dict) -> str:
         render();
       }});
     }}
-    function renderKpis(rows) {{
+    function renderKpis(rows, evalRows) {{
       const highMedium = rows.filter(d => d.intervention_priority === "High" || d.intervention_priority === "Medium");
+      const actionableEval = evalRows.filter(d => d.intervention_priority === "High" || d.intervention_priority === "Medium");
       document.getElementById("kpiMerchants").textContent = fmtInt(rows.length);
       document.getElementById("kpiHealth").textContent = median(rows.map(d => d.health_score)).toFixed(1);
       document.getElementById("kpiGmv").textContent = fmtMoney(highMedium.reduce((acc, d) => acc + (d.lifetime_gmv || 0), 0));
       document.getElementById("kpiPriority").textContent = fmtInt(rows.filter(d => d.intervention_priority === "High").length);
+      const lift = median(actionableEval.map(d => d.expected_30d_health_lift));
+      document.getElementById("kpiLift").textContent = "+" + lift.toFixed(1);
     }}
     function renderHealthTrend() {{
       const selected = document.getElementById("segmentFilter").value;
@@ -565,6 +612,50 @@ def build_html(data: dict) -> str:
         xaxis: {{ ...base.xaxis, title: "Importance" }}
       }}, config);
     }}
+    function renderEvaluationLift(rows) {{
+      const grouped = {{}};
+      rows.forEach(row => {{
+        const key = row.dominant_issue || "unknown";
+        if (!grouped[key]) grouped[key] = {{ count: 0, lift: 0, gmv: 0 }};
+        grouped[key].count += 1;
+        grouped[key].lift += row.expected_30d_health_lift || 0;
+        grouped[key].gmv += row.lifetime_gmv || 0;
+      }});
+      const labels = Object.keys(grouped).sort();
+      const avgLift = labels.map(k => grouped[k].count ? grouped[k].lift / grouped[k].count : 0);
+      const base = layoutBase();
+      Plotly.newPlot("evaluationLift", [{{
+        x: avgLift,
+        y: labels,
+        type: "bar",
+        orientation: "h",
+        marker: {{ color: labels.map(k => palette[k] || "#667085") }},
+        text: labels.map(k => `${{grouped[k].count}} merchants`),
+        textposition: "auto",
+        hovertemplate: "%{{y}}<br>Avg expected lift: %{{x:.1f}}<extra></extra>"
+      }}], {{
+        ...base,
+        margin: {{ l: 112, r: 20, t: 18, b: 48 }},
+        xaxis: {{ ...base.xaxis, title: "Expected 30-day health lift" }}
+      }}, config);
+    }}
+    function renderScoreSensitivity() {{
+      const rows = DATA.sensitivity.filter(d => d.scenario !== "business_calibrated_v1");
+      const labels = rows.map(d => d.scenario.replaceAll("_", " "));
+      const base = layoutBase();
+      Plotly.newPlot("scoreSensitivity", [{{
+        x: labels,
+        y: rows.map(d => 100 * d.primary_at_risk_overlap_rate),
+        type: "bar",
+        marker: {{ color: "#087f8c" }},
+        customdata: rows.map(d => [d.spearman_rank_corr, d.median_abs_score_change, d.p90_abs_score_change]),
+        hovertemplate: "%{{x}}<br>At-risk overlap: %{{y:.1f}}%<br>Rank corr: %{{customdata[0]:.3f}}<br>Median score change: %{{customdata[1]:.1f}}<br>P90 score change: %{{customdata[2]:.1f}}<extra></extra>"
+      }}], {{
+        ...base,
+        yaxis: {{ ...base.yaxis, title: "Primary at-risk overlap", range: [0, 100] }},
+        xaxis: {{ ...base.xaxis, tickangle: -20 }}
+      }}, config);
+    }}
     function renderTable(rows) {{
       const sorted = [...rows]
         .sort((a, b) => {{
@@ -581,18 +672,22 @@ def build_html(data: dict) -> str:
           <td>${{row.health_score.toFixed(1)}}</td>
           <td>${{row.dominant_issue}}</td>
           <td>${{fmtMoney(row.lifetime_gmv || row.gmv)}}</td>
+          <td>+${{(row.expected_30d_health_lift || 0).toFixed(1)}} -> ${{(row.expected_30d_health_score || row.health_score).toFixed(1)}}</td>
           <td>${{row.recommended_action}}</td>
         </tr>
       `).join("");
     }}
     function render() {{
       const rows = filteredLatest();
-      renderKpis(rows);
+      const evalRows = filteredEvaluation();
+      renderKpis(rows, evalRows);
       renderHealthTrend();
       renderSegmentMix(rows);
       renderDriverMix(rows);
       renderComponentScores(rows);
       renderFeatureImportance();
+      renderEvaluationLift(evalRows);
+      renderScoreSensitivity();
       renderTable(rows);
     }}
     setupFilters();

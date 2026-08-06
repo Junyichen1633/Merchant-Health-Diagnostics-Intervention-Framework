@@ -8,7 +8,11 @@ Live dashboard: https://junyichen1633.github.io/Merchant-Health-Diagnostics-Inte
 
 ## Business Problem
 
-Marketplace teams need to know which merchants are likely to create poor buyer experiences, lose momentum, or require product support. A static merchant ranking is not enough: PMs and operators need to understand why a merchant is unhealthy and what action should happen next.
+The motivation behind this project was simple.
+
+Marketplace teams often have many merchant metrics, but they don't have a simple way to decide which merchants need attention first.
+
+I wanted to build a framework that combines operational metrics into a single health score, explains why a merchant is unhealthy, and recommends what the product team should do next.
 
 This project answers five product questions:
 
@@ -42,7 +46,7 @@ The primary score design is `business_calibrated_v1`:
 - Retention: 15%
 - Growth: 20%
 
-This design gives the most weight to buyer experience signals because they are actionable product levers and leading indicators of marketplace quality. Retention remains an outcome metric, but its weight is lower because repeat purchase is sparse in Olist and should not dominate the score without stronger merchant lifecycle data.
+Satisfaction was assigned a higher weight because customer review signals are available at a higher frequency and better reflect merchant quality in the Olist dataset.
 
 The pipeline also runs sensitivity checks across alternative designs:
 
@@ -55,15 +59,18 @@ The sensitivity output reports rank correlation, at-risk overlap, median score m
 
 ## Decision Framework
 
-The framework turns metrics into product decisions:
+The goal of this project is not just to score merchants, but to support product decisions.
 
-1. Score each merchant-month on the four health components.
-2. Convert the primary health signal into a 0-100 percentile score and health band.
-3. Compute month-over-month component deltas to explain health drops.
-4. Assign the current weakest component as the dominant issue.
-5. Segment the latest merchant snapshot into business-readable groups.
-6. Recommend an intervention playbook based on the dominant issue.
-7. Estimate expected 30-day health lift and define the measurement plan.
+For each merchant-month, the pipeline follows a simple decision process:
+
+1. Calculate fulfillment, satisfaction, retention, and growth metrics.
+2. Combine them into an overall merchant health score.
+3. Identify the weakest health component driving the score.
+4. Prioritize merchants based on current health, recent deterioration, and GMV exposure.
+5. Recommend a targeted intervention based on the dominant issue.
+6. Define a 30-day evaluation plan to measure whether the intervention improved merchant health.
+
+Rather than predicting outcomes with a black-box model, the framework emphasizes interpretability. A product manager should be able to understand why a merchant was flagged, what action is recommended, and how success will be measured after the intervention.
 
 Intervention priority is based on current health and recent deterioration:
 
@@ -134,11 +141,16 @@ The dashboard should be used as an operating loop:
 
 ## Future Work
 
-- Replace proxy features with Shopify merchant lifecycle data.
-- Add merchant subscription status, app adoption, support tickets, and fulfillment-provider data.
-- Validate intervention impact with a randomized rollout, geo/category holdout, or matched historical cohort.
-- Add confidence intervals for expected 30-day lift.
-- Build a monitoring job that refreshes merchant health monthly and flags metric drift.
+This project uses the public Olist dataset as a proxy for a real marketplace, so several important signals are unavailable.
+
+If Shopify merchant data were available, I would extend the framework by:
+
+- Incorporating merchant support tickets, app adoption, subscription status, and fulfillment-provider data.
+- Measuring intervention effectiveness with randomized rollouts or matched control groups instead of observational estimates.
+- Tracking merchant health continuously through an automated monitoring pipeline instead of periodic offline analysis.
+- Estimating confidence intervals for expected health improvements to better communicate uncertainty.
+
+The current framework focuses on building a practical decision system. A production implementation would place greater emphasis on experimentation, continuous monitoring, and integration with operational workflows.
 
 ## How To Run
 
